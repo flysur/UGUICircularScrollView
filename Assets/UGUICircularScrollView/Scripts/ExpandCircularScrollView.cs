@@ -18,6 +18,9 @@ namespace CircularScrollView
 {
     public class ExpandCircularScrollView : UICircularScrollView
     {
+        /// <summary>
+        /// 可展开的cell
+        /// </summary>
         public GameObject m_ExpandButton;
         public float m_BackgroundMargin;
         public bool m_IsExpand = false;
@@ -50,17 +53,18 @@ namespace CircularScrollView
             Init(callBack, null);
         }
 
-        public void Init(Action<GameObject, GameObject, int, int> callBack, Action<GameObject, GameObject, int, int> onClickCallBack, Action<int,bool,GameObject> onButtonClickCallBack)
-        {
-            m_FuncOnButtonClickCallBack = onButtonClickCallBack;
-            Init(callBack, onClickCallBack);
-        }
+        //public void Init(Action<GameObject, GameObject, int, int> callBack, Action<GameObject, GameObject, int, int> onClickCallBack, Action<int, bool, GameObject> onButtonClickCallBack)
+        //{
+        //    m_FuncOnButtonClickCallBack = onButtonClickCallBack;
+        //    Init(callBack, onClickCallBack);
+        //}
 
-        public void Init(Action<GameObject, GameObject, int, int> callBack, Action<GameObject, GameObject, int, int> onClickCallBack)
+        
+        private void Init(Action<GameObject, GameObject, int, int> cellcCallBack, Action<GameObject, GameObject, int, int> onClickCallBack)
         {
             base.Init(null, null);
 
-            m_FuncCallBackFunc = callBack;
+            m_FuncCallBackFunc = cellcCallBack;
 
             /* Button 处理 */
             if (m_ExpandButton == null)
@@ -89,20 +93,49 @@ namespace CircularScrollView
                 }
             }
         }
+        
+        public void toggleExpand(int index)
+        {
+            OnClickExpand(index);
+        }
 
-        public override void ShowList(string numStr)
+        public bool getIsExpand(int index)
+        {
+            return m_ExpandInfos[index].isExpand;
+        }
+        [Obsolete("erro method", true)]
+        public override void ShowList(int num)
+        {
+            Debug.LogError("erro method");
+        }
+
+        int[] mCellNumArray;
+
+        public override void ShowList(string numStr )
+        {
+            string[] arry = numStr.Split('|');
+            int len = arry.Length;
+            int[] numArray = new int[arry.Length];
+            for (int i=0;i<len;++i)
+            {
+                numArray[i] = int.Parse(arry[i]);
+            }
+            ShowList(numArray);
+        }
+
+       
+        public void ShowList(int[] numArray,bool reRest = false,bool isResetSzie =false)
         {
             ClearCell(); //清除所有Cell (非首次调Showlist时执行)
-
-            int totalCount = 0;
+            mCellNumArray = numArray;
+            int expandCellCount = 0;
 
             int beforeCellCount = 0; 
 
-            string[] numArray = numStr.Split('|');
             int buttonCount = numArray.Length;
 
             bool isReset;
-            if(m_IsInited && m_ExpandInfos.Length == buttonCount)
+            if(!reRest && (m_IsInited && m_ExpandInfos.Length == buttonCount))
             {
                 isReset = false;
             }
@@ -141,8 +174,8 @@ namespace CircularScrollView
                     button.transform.GetComponent<RectTransform>().anchoredPosition = new Vector3(pos, m_ExpandButtonY, 0);
                 }
 
-                int count = int.Parse(numArray[k]);
-                totalCount += count;
+                int count = numArray[k];
+                //totalCount += count;
 
                 //-> 存储数据
                 ExpandInfo expandInfo = isReset ? new ExpandInfo() : m_ExpandInfos[k];
@@ -157,7 +190,7 @@ namespace CircularScrollView
                 for (int i = 0; i < count; i++)
                 {
                     if (!expandInfo.isExpand) break;
-
+                    ++expandCellCount;
                     CellInfo cellInfo = new CellInfo();
 
                     float rowPos = 0; //计算每排里面的cell 坐标
@@ -167,16 +200,16 @@ namespace CircularScrollView
                     {
                         pos = m_CellObjectHeight * Mathf.FloorToInt( i / m_Row ) + m_Spacing * ( Mathf.FloorToInt(i / m_Row) + 1 );
                         pos += (m_ExpandButtonHeight + m_Spacing) * (k + 1);
-                        pos += (m_CellObjectHeight + m_Spacing) * Mathf.CeilToInt((float)beforeCellCount /m_Row);
-                        rowPos = m_CellObjectWidth * ( i % m_Row ) + m_Spacing * ( i % m_Row);
-                        cellInfo.pos = new Vector3(rowPos, -pos, 0);
+                        pos += (m_CellObjectHeight + m_Spacing) * Mathf.CeilToInt((float)beforeCellCount /m_Row)+topPadding.y;
+                        rowPos = m_CellObjectWidth * ( i % m_Row ) + m_Spacing * ( i % m_Row)+topPadding.x;
+                        cellInfo.pos = new Vector3(rowPos+topPadding.x, -(pos+topPadding.y), 0);
                     }
                     else
                     {
                         pos = m_CellObjectWidth * Mathf.FloorToInt(i / m_Row) + m_Spacing * ( Mathf.FloorToInt(i / m_Row) + 1 );
                         pos += (m_ExpandButtonWidth + m_Spacing) * (k + 1);
-                        pos += (m_CellObjectHeight + m_Spacing) * Mathf.CeilToInt( (float)beforeCellCount /m_Row );
-                        rowPos = m_CellObjectHeight * (i % m_Row) + m_Spacing * (i % m_Row);
+                        pos += (m_CellObjectHeight + m_Spacing) * Mathf.CeilToInt( (float)beforeCellCount /m_Row )+topPadding.x;
+                        rowPos = m_CellObjectHeight * (i % m_Row) + m_Spacing * (i % m_Row)+topPadding.y;
                         cellInfo.pos = new Vector3(pos, -rowPos, 0);
                     }
 
@@ -216,26 +249,26 @@ namespace CircularScrollView
                 Func(m_FuncCallBackFunc, button, null, expandInfo.isExpand);
             }
 
-            if (!m_IsInited)
+            if (!m_IsInited || isResetSzie|| isReset)
             {
                 //-> 计算 Content 尺寸
                 if(m_Direction == e_Direction.Vertical)
                 {
-                    float contentSize = m_IsExpand ? (m_Spacing + m_CellObjectHeight) * Mathf.CeilToInt((float)totalCount / m_Row) : 0;
-                    contentSize += (m_Spacing + m_ExpandButtonHeight) * buttonCount;
+                    float contentSize = (m_Spacing + m_CellObjectHeight) * Mathf.CeilToInt((float)expandCellCount / m_Row);
+                    contentSize += (m_Spacing + m_ExpandButtonHeight) * buttonCount+topPadding.y;
                     m_ContentRectTrans.sizeDelta = new Vector2(m_ContentRectTrans.sizeDelta.x, contentSize);
                 }
                 else
                 {
-                    float contentSize = m_IsExpand ? (m_Spacing + m_CellObjectWidth) * Mathf.CeilToInt((float)totalCount / m_Row) : 0;
-                    contentSize += (m_Spacing + m_ExpandButtonWidth) * buttonCount;
+                    float contentSize = (m_Spacing + m_CellObjectWidth) * Mathf.CeilToInt((float)expandCellCount/ m_Row);
+                    contentSize += (m_Spacing + m_ExpandButtonWidth) * buttonCount+ buttonCount + topPadding.x;
                     m_ContentRectTrans.sizeDelta = new Vector2(contentSize, m_ContentRectTrans.sizeDelta.y);
                 }
             }
 
             m_IsInited = true;
         }
-
+       
         //清除所有Cell (扔到对象池)
         private void ClearCell()
         {
@@ -275,9 +308,20 @@ namespace CircularScrollView
 				m_FuncOnButtonClickCallBack(index, m_ExpandInfos[index - 1].isExpand, button);
             }
         }
+
         public override void OnClickExpand(int index)
         {
-            index = index - 1;
+            setExpand(index, !m_ExpandInfos[index].isExpand);
+        }
+
+
+        public void setExpand(int index,bool isExpand)
+        {
+            //index = index;
+            if (m_IsInited && m_ExpandInfos[index].isExpand == isExpand)
+            {
+                return;
+            }
             m_ExpandInfos[index].isExpand = !m_ExpandInfos[index].isExpand;
 
             //-> 计算 Contant Size
@@ -523,8 +567,8 @@ namespace CircularScrollView
             {
                 objName = (selectObject.name).Split('-');
             }
-            int buttonNum = int.Parse(button.name) + 1;
-            int num = int.Parse(objName[1]) + 1;
+            int buttonNum = int.Parse(button.name) ;
+            int num = int.Parse(objName[1]);
 
             if (Func != null)
             {
