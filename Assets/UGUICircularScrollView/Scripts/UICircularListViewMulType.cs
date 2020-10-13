@@ -24,7 +24,6 @@ namespace CircularScrollView
 
     /// <summary>
     /// （ps:CellItem、Content 的Anchors 需为Top-Left Pivot为（0，1））
-    /// 多类型列表item（类似于微信app,通讯录样式列表(头样式，然后子样式)）
     /// </summary>
 
     [RequireComponent(typeof(ScrollRect))]

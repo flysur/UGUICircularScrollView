@@ -15,6 +15,8 @@ namespace CircularScrollView
         SerializedProperty m_Row;
         SerializedProperty m_Spacing;
         SerializedProperty m_CellGameObject;
+        SerializedProperty ptrRowBg;
+        SerializedProperty itemRowBg;
 
         UICircularScrollView list;
         protected void OnEnable()
@@ -24,6 +26,8 @@ namespace CircularScrollView
             m_Row = serializedObject.FindProperty("m_Row");//int
             m_Spacing = serializedObject.FindProperty("m_Spacing");
             m_CellGameObject = serializedObject.FindProperty("m_CellGameObject");
+            ptrRowBg = serializedObject.FindProperty("ptrRowBg");
+            itemRowBg = serializedObject.FindProperty("itemRowBg");
         }
 
         public override void OnInspectorGUI()
@@ -45,13 +49,17 @@ namespace CircularScrollView
             //list.topPadding = EditorGUILayout.Vector2Field("TopPadding: ", list.topPadding);
             //EditorGUILayout.PropertyField(topPadding, new GUIContent("TopPadding"),null);
             topPadding.vector2Value = EditorGUILayout.Vector2Field("TopPadding",topPadding.vector2Value, null);
-            list.m_IsShowArrow = EditorGUILayout.ToggleLeft(" IsShowArrow", list.m_IsShowArrow);
-            if(list.m_IsShowArrow)
+            ptrRowBg.objectReferenceValue = EditorGUILayout.ObjectField("PtrRowBg: ", ptrRowBg.objectReferenceValue, typeof(Transform), true);
+            itemRowBg.objectReferenceValue = EditorGUILayout.ObjectField("ItemRowBg: ", itemRowBg.objectReferenceValue, typeof(GameObject), true);
+
+            list.m_IsShowArrow = EditorGUILayout.ToggleLeft("IsShowArrow", list.m_IsShowArrow);
+            if (list.m_IsShowArrow)
             {
                 list.m_PointingFirstArrow = (GameObject)EditorGUILayout.ObjectField("Up or Left Arrow: ", list.m_PointingFirstArrow, typeof(GameObject), true);
                 list.m_PointingEndArrow = (GameObject)EditorGUILayout.ObjectField("Down or Right Arrow: ", list.m_PointingEndArrow, typeof(GameObject), true);
             }
             
+
             serializedObject.ApplyModifiedProperties();
         }
 

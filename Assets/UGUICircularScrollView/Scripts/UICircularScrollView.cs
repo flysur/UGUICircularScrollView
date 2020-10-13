@@ -98,6 +98,7 @@ namespace CircularScrollView
         };
 
         protected CellInfo[] m_CellInfos;
+        protected CellInfo[] m_RowBgInfos;
 
         protected bool m_IsInited = false;
 
@@ -131,7 +132,7 @@ namespace CircularScrollView
             }
             Init(callBack, onClickCallBack);
         }
-
+        float defautZ = 0;
         public virtual void Init(Action<GameObject, int> callBack, Action<GameObject, int> onClickCallBack)
         {
 
@@ -166,7 +167,7 @@ namespace CircularScrollView
             //记录 Cell 信息
             m_CellObjectHeight = cellRectTrans.rect.height;
             m_CellObjectWidth = cellRectTrans.rect.width;
-
+            defautZ = cellRectTrans.localPosition.z;
             //记录 Plane 信息
             rectTrans = GetComponent<RectTransform>();
             Rect planeRect = rectTrans.rect;
@@ -197,6 +198,13 @@ namespace CircularScrollView
             }
 
             //InitScrollBarGameObject(); // 废弃
+
+            //rowBg
+            if (ptrRowBg!=null)
+            {
+                SetPoolsRowBg(itemRowBg);
+            }
+
 
             m_isInited = true;
 
@@ -269,27 +277,36 @@ namespace CircularScrollView
         }
 
         //实时刷新列表时用
-        public virtual void UpdateList()
+        public virtual void UpdateList(bool force = true)
         {
-            UpdateCheck();
-            //for (int i = 0, length = m_CellInfos.Length; i < length; i++)
-            //{
-            //    CellInfo cellInfo = m_CellInfos[i];
-            //    if (cellInfo.obj != null)
-            //    {
-            //        float rangePos = m_Direction == e_Direction.Vertical ? cellInfo.pos.y : cellInfo.pos.x;
-            //        if (!IsOutRange(rangePos))
-            //        {
-            //            Func(m_FuncCallBackFunc, cellInfo, true);
-            //        }
-            //    }
-            //}
+            if (force)
+            {
+                UpdateCheck();
+            }
+            else
+            {
+                for (int i = m_MinIndex, length = m_MaxIndex; i <= length; i++)
+                {
+                    CellInfo cellInfo = m_CellInfos[i];
+                    if (cellInfo.obj != null)
+                    {
+                        Func(m_FuncCallBackFunc, cellInfo);
+                        //float rangePos = m_Direction == e_Direction.Vertical ? cellInfo.pos.y : cellInfo.pos.x;
+                        //if (!IsOutRange(rangePos))
+                        //{
+                        //    Func(m_FuncCallBackFunc, cellInfo, true);
+                        //}
+                    }
+                }
+            }
+
+
         }
 
         //刷新某一项
         public void UpdateCell(int index)
         {
-            CellInfo cellInfo = m_CellInfos[index - 1];
+            CellInfo cellInfo = m_CellInfos[index];
             if (cellInfo.obj != null)
             {
                 float rangePos = m_Direction == e_Direction.Vertical ? cellInfo.pos.y : cellInfo.pos.x;
@@ -366,6 +383,7 @@ namespace CircularScrollView
 
             //-> 计算 开始索引
             int lastEndIndex = 0;
+            int starRow = 0;
             //Debug.Log(" num = " + num);
             //-> 过多的物体 扔到对象池 ( 首次调 ShowList函数时 则无效 )
             if (m_IsInited)
@@ -385,6 +403,24 @@ namespace CircularScrollView
                     {
                         SetPoolsObj(m_CellInfos[i].obj);
                         m_CellInfos[i].obj = null;
+                    }
+                }
+                //rowBg
+                if (ptrRowBg != null)
+                {
+                    starRow = Mathf.CeilToInt(lastEndIndex / m_Row);
+                    int endRow = m_IsClearList ? m_RowBgInfos.Length : m_MaxLine;
+                    for (int i = starRow; i < endRow; ++i)
+                    {
+                        if (m_RowBgInfos[i] == null)
+                        {
+                            continue;
+                        }
+                        if (m_RowBgInfos[i].obj != null)
+                        {
+                            SetPoolsRowBg(m_RowBgInfos[i].obj);
+                            m_RowBgInfos[i].obj = null;
+                        }
                     }
                 }
             }
@@ -412,7 +448,8 @@ namespace CircularScrollView
                         {
                             tempCellInfo.obj = GetPoolsObj();
                         }
-                        tempCellInfo.obj.transform.GetComponent<RectTransform>().anchoredPosition = tempCellInfo.pos;
+                        //tempCellInfo.obj.transform.GetComponent<RectTransform>().anchoredPosition = tempCellInfo.pos;
+                        tempCellInfo.obj.transform.localPosition = tempCellInfo.pos;
                         tempCellInfo.obj.name = i.ToString();
                         tempCellInfo.obj.SetActive(true);
 
@@ -438,13 +475,13 @@ namespace CircularScrollView
                 {
                     pos = m_CellObjectHeight * Mathf.FloorToInt(i / m_Row) + m_Spacing * Mathf.FloorToInt(i / m_Row)+topPadding.y;
                     rowPos = m_CellObjectWidth * (i % m_Row) + m_Spacing * (i % m_Row)+ topPadding.x;
-                    cellInfo.pos = new Vector3(rowPos, -pos, 0);
+                    cellInfo.pos = new Vector3(rowPos, -pos, defautZ);
                 }
                 else
                 {
                     pos = m_CellObjectWidth * Mathf.FloorToInt(i / m_Row) + m_Spacing * Mathf.FloorToInt(i / m_Row)+topPadding.x;
                     rowPos = m_CellObjectHeight * (i % m_Row) + m_Spacing * (i % m_Row)+topPadding.y;
-                    cellInfo.pos = new Vector3(pos, -rowPos, 0);
+                    cellInfo.pos = new Vector3(pos, -rowPos, defautZ);
                 }
                 cellInfo.index = i;
                 //-> 计算是否超出范围
@@ -473,10 +510,7 @@ namespace CircularScrollView
                 Func(m_FuncCallBackFunc, cellInfo);
                 showItems.Add(cellInfo);
             }
-           
             m_MaxCount = num;
-            m_IsInited = true;
-
             OnDragListener(Vector2.zero);
             ShowWithAnimator(showItems);
             //if (corAnimShow!=null)
@@ -484,6 +518,87 @@ namespace CircularScrollView
             //    StopCoroutine(corAnimShow);
             //}
             //corAnimShow = StartCoroutine (IShowWithAnimator(showItems));
+
+            //RowBg
+            if (ptrRowBg!=null)
+            {
+                //-> 以下四行代码 在for循环所用
+                CellInfo[] tmpRowBgInfos = m_RowBgInfos;
+                m_RowBgInfos = new CellInfo[m_MaxLine];
+                List<CellInfo> showRowBgItems = new List<CellInfo>();
+                //-> 1: 计算 每个Cell坐标并存储 2: 显示范围内的 Cell
+                for (int i = 0; i < m_MaxLine; i++)
+                {
+                    // * -> 存储 已有的数据 ( 首次调 ShowList函数时 则无效 )
+                    if (m_MaxLine != -1 && i < starRow)
+                    {
+                        CellInfo tempCellInfo = tmpRowBgInfos[i];
+                        //-> 计算是否超出范围
+                        float rPos = m_Direction == e_Direction.Vertical ? tempCellInfo.pos.y : tempCellInfo.pos.x;
+                        if (!IsOutRange(rPos))
+                        {
+                            if (tempCellInfo.obj == null)
+                            {
+                                tempCellInfo.obj = GetPoolsRowBg();
+                            }
+                            //tempCellInfo.obj.transform.GetComponent<RectTransform>().anchoredPosition = tempCellInfo.pos;
+                            tempCellInfo.obj.transform.localPosition = tempCellInfo.pos;
+                            tempCellInfo.obj.name = i.ToString();
+                            tempCellInfo.obj.SetActive(true);
+                            showRowBgItems.Add(tempCellInfo);
+                        }
+                        else
+                        {
+                            SetPoolsRowBg(tempCellInfo.obj);
+                            tempCellInfo.obj = null;
+                        }
+                        m_RowBgInfos[i] = tempCellInfo;
+                        continue;
+                    }
+
+                    CellInfo cellInfo = new CellInfo();
+
+                    float pos = 0;  //坐标( isVertical ? 记录Y : 记录X )
+
+                    // * -> 计算每个Cell坐标
+                    if (m_Direction == e_Direction.Vertical)
+                    {
+                        pos = m_CellObjectHeight * i  + m_Spacing * i +topPadding.y;
+                        cellInfo.pos = new Vector3(0, -pos, defautZ);
+                    }
+                    else
+                    {
+                        pos = m_CellObjectWidth * i  + m_Spacing * i + topPadding.x;
+                        cellInfo.pos = new Vector3(pos,0, defautZ);
+                    }
+                    cellInfo.index = i;
+                    //-> 计算是否超出范围
+                    float cellPos = m_Direction == e_Direction.Vertical ? cellInfo.pos.y : cellInfo.pos.x;
+                    if (IsOutRange(cellPos))
+                    {
+                        cellInfo.obj = null;
+                        m_RowBgInfos[i] = cellInfo;
+                        continue;
+                    }
+
+                    //-> 取或创建 Cell
+                    GameObject cell = GetPoolsRowBg();
+                    cell.transform.GetComponent<RectTransform>().anchoredPosition = cellInfo.pos;
+                    cell.gameObject.name = i.ToString();
+
+                    //-> 存数据
+                    cellInfo.obj = cell;
+                    m_RowBgInfos[i] = cellInfo;
+
+                    ////-> 回调  函数
+                    //Func(m_FuncCallBackFunc, cellInfo);
+                    showRowBgItems.Add(cellInfo);
+                }
+            }
+
+            m_IsInited = true;
+
+            
         }
 
         Coroutine corAnimShow;
@@ -566,6 +681,40 @@ namespace CircularScrollView
                     m_MaxIndex = i;
                 }
             }
+            if (ptrRowBg == null)
+            {
+                return;
+            }
+            for (int i = 0, length = m_RowBgInfos.Length; i < length; i++)
+            {
+                CellInfo cellInfo = m_RowBgInfos[i];
+                GameObject obj = cellInfo.obj;
+                Vector3 pos = cellInfo.pos;
+
+                float rangePos = m_Direction == e_Direction.Vertical ? pos.y : pos.x;
+                //判断是否超出显示范围
+                if (IsOutRange(rangePos))
+                {
+                    //把超出范围的cell 扔进 poolsObj里
+                    if (obj != null)
+                    {
+                        SetPoolsRowBg(obj);
+                        m_RowBgInfos[i].obj = null;
+                    }
+                }
+                else
+                {
+                    if (obj == null)
+                    {
+                        //优先从 poolsObj中 取出 （poolsObj为空则返回 实例化的cell）
+                        GameObject cell = GetPoolsRowBg();
+                        cell.transform.localPosition = pos;
+                        cell.gameObject.name = i.ToString();
+                        m_RowBgInfos[i].obj = cell;
+                    }
+                }
+            }
+
             //if (m_MaxIndex==-1)
             //{
             //    m_MaxIndex = m_MaxCount;
@@ -628,9 +777,9 @@ namespace CircularScrollView
             {
                 cell = Instantiate(m_CellGameObject) as GameObject;
             }
-            cell.transform.SetParent(m_Content.transform);
+            cell.transform.SetParent(m_Content.transform,false);
             cell.transform.localScale = Vector3.one;
-            cell.transform.localPosition = Vector3.zero;
+            //cell.transform.localPosition = Vector3.zero;
             UIUtils.SetActive(cell, true);
             
             return cell;
@@ -644,6 +793,45 @@ namespace CircularScrollView
                 UIUtils.SetActive(cell, false);
             }
         }
+
+        public Transform ptrRowBg;
+        public GameObject itemRowBg;
+
+        //对象池 机制  (存入， 取出) cell
+        protected Stack<GameObject> poolsRowBg = new Stack<GameObject>();
+        //取出 cell
+        protected virtual GameObject GetPoolsRowBg()
+        {
+            if (ptrRowBg == null)
+            {
+                return null;
+            }
+            GameObject cell = null;
+            if (poolsRowBg.Count > 0)
+            {
+                cell = poolsRowBg.Pop();
+            }
+            if (cell == null)
+            {
+                cell = Instantiate(itemRowBg) as GameObject;
+            }
+            cell.transform.SetParent(ptrRowBg, false);
+            cell.transform.localScale = Vector3.one;
+            //cell.transform.localPosition = Vector3.zero;
+            UIUtils.SetActive(cell, true);
+
+            return cell;
+        }
+        //存入 cell
+        protected virtual void SetPoolsRowBg(GameObject cell)
+        {
+            if (cell != null)
+            {
+                poolsRowBg.Push(cell);
+                UIUtils.SetActive(cell, false);
+            }
+        }
+
 
         //回调
         protected void Func(Action<GameObject, int> func, CellInfo cellInfo, bool isUpdate = false)

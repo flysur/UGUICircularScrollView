@@ -55,9 +55,10 @@ public class UILayoutHorFlex :MonoBehaviour
             curRow = 1;
         }
         itemRect.SetParent(content,false);
-        Vector2 itemWH = itemRect.sizeDelta;
+        //Vector2 itemWH = item.GetRectW();
+        float itemW = item.GetRectW();
         float posX, posY;
-        if (lastItemPos.x + itemWH.x > contentW)
+        if (lastItemPos.x + itemW > contentW)
         {
             if (maxLine>0)
             {
@@ -78,7 +79,7 @@ public class UILayoutHorFlex :MonoBehaviour
         showItems.Add(item);
         conteSize = new Vector2(contentW,cellH * curRow+(curRow-1)*space.y);
         itemRect.localPosition = new Vector3(posX,posY,0);
-        lastItemPos =  new Vector2(posX+ itemWH.x + space.x,posY);
+        lastItemPos =  new Vector2(posX+ itemW + space.x,posY);
         content.sizeDelta = conteSize;
         return true;
     }
@@ -136,5 +137,20 @@ public abstract class UIItemFlex : MonoBehaviour
         {
             Destroy(gameObject);
         }
+    }
+
+    //public virtual Vector2 GetRectV()
+    //{
+    //    return trRect.sizeDelta;
+    //}
+
+    public virtual float GetRectW()
+    {
+        return trRect.sizeDelta.x;
+    }
+
+    public virtual float GetRectH()
+    {
+        return trRect.sizeDelta.y;
     }
 }
